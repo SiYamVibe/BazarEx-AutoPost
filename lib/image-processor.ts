@@ -9,22 +9,22 @@ export interface CompositeOptions {
   customFramePath?: string;
 }
 
-// Verified layout coordinates
-const CARD_WIDTH = 358;
-const CARD_HEIGHT = 608;
-const CARD_RADIUS = 40;
+// Pixel-perfect layout coordinates matched to ebg.webp
+const CARD_WIDTH = 354;
+const CARD_HEIGHT = 598;
+const CARD_RADIUS = 36;
 
-const LEFT_CARD_OFFSET = { left: 135, top: 275 };
-const RIGHT_CARD_OFFSET = { left: 530, top: 275 };
+const LEFT_CARD_OFFSET = { left: 138, top: 278 };
+const RIGHT_CARD_OFFSET = { left: 532, top: 278 };
 
-const COUNTER_OFFSET = { left: 444, top: 135 };
-const COUNTER_WIDTH = 183;
-const COUNTER_HEIGHT = 75;
+const COUNTER_OFFSET = { left: 445, top: 138 };
+const COUNTER_WIDTH = 182;
+const COUNTER_HEIGHT = 74;
 
 function createRoundedMask(width: number, height: number, radius: number): Buffer {
   return Buffer.from(`
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="${width}" height="${height}" rx="${radius}" ry="${radius}" fill="#fff" />
+      <rect x="0" y="0" width="${width}" height="${height}" rx="${radius}" ry="${radius}" fill="#ffffff" />
     </svg>
   `);
 }
@@ -32,13 +32,12 @@ function createRoundedMask(width: number, height: number, radius: number): Buffe
 function createCounterSvg(exchangeNo: number): Buffer {
   return Buffer.from(`
     <svg width="${COUNTER_WIDTH}" height="${COUNTER_HEIGHT}" viewBox="0 0 ${COUNTER_WIDTH} ${COUNTER_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-      <text x="50%" y="50%"
+      <text x="50%" y="53"
             text-anchor="middle"
-            dominant-baseline="central"
             font-family="system-ui, -apple-system, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif"
-            font-size="52"
+            font-size="46"
             font-weight="900"
-            letter-spacing="-0.5"
+            letter-spacing="-1"
             fill="#111111">#${exchangeNo}</text>
     </svg>
   `);
