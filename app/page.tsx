@@ -19,6 +19,7 @@ import {
   ArrowRight,
   Layers,
 } from "lucide-react";
+import PreviewModal from "@/components/preview-modal";
 
 interface ManualBox {
   id: string;
@@ -73,9 +74,6 @@ export default function Dashboard() {
   const [dryRun, setDryRun] = useState(false);
   const [isClassifying, setIsClassifying] = useState(false);
 
-  // Raw uploaded files pair
-  const [uploadedFiles, setUploadedFiles] = useState<[File, File] | null>(null);
-
   // Received and Sent card states
   const [receivedCard, setReceivedCard] = useState<ImageCardState>({
     file: null,
@@ -98,6 +96,9 @@ export default function Dashboard() {
   });
 
   const [compositePreview, setCompositePreview] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successPost, setSuccessPost] = useState<{ id: string; permalink_url: string; simulated?: boolean } | null>(null);
@@ -184,16 +185,14 @@ export default function Dashboard() {
     setErrorMessage(null);
     setSuccessPost(null);
     setCompositePreview(null);
+    setIsModalOpen(false);
     setIsClassifying(true);
     setStatusMessage("Classifying receipts & detecting currency pair autonomously...");
 
     try {
       const [f0, f1] = fileArray;
-      setUploadedFiles([f0, f1]);
-
       const [card0, card1] = await Promise.all([prepareCardState(f0), prepareCardState(f1)]);
 
-      // Call classification API
       const fd = new FormData();
       fd.append("file0", f0);
       fd.append("file1", f1);
@@ -220,7 +219,6 @@ export default function Dashboard() {
       }
     } catch (err: any) {
       console.error("Classification error:", err);
-      // Fallback arrangement on network/parse error
       const [c0, c1] = await Promise.all([prepareCardState(fileArray[0]), prepareCardState(fileArray[1])]);
       setReceivedCard(c0);
       setSentCard(c1);
@@ -236,7 +234,6 @@ export default function Dashboard() {
     setReceivedCard(sentCard);
     setSentCard(receivedCard);
 
-    // Swap currencies to match swapped sides
     const prevFrom = fromCurrency;
     setFromCurrency(toCurrency);
     setToCurrency(prevFrom);
@@ -253,14 +250,14 @@ export default function Dashboard() {
     }));
   };
 
-  // Generate 1080x1080 preview
+  // Generate high-fidelity 1024x1024 preview and open modal
   const handleGeneratePreview = async () => {
     if (!receivedCard.file || !sentCard.file) {
       setErrorMessage("Please upload both screenshots before generating preview.");
       return;
     }
 
-    setIsProcessing(true);
+    setIsPreviewLoading(true);
     setErrorMessage(null);
     setStatusMessage("Running OCR Privacy Guard & compositing preview...");
 
@@ -288,6 +285,8 @@ export default function Dashboard() {
       }
 
       setCompositePreview(data.previewUrl);
+      setIsModalOpen(true);
+
       if (data.detectedBoxes) {
         setReceivedCard((prev) => ({
           ...prev,
@@ -298,11 +297,11 @@ export default function Dashboard() {
           detectedCount: data.detectedBoxes.sent?.length || 0,
         }));
       }
-      setStatusMessage(null);
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to generate preview");
     } finally {
-      setIsProcessing(false);
+      setIsPreviewLoading(false);
+      setStatusMessage(null);
     }
   };
 
@@ -316,7 +315,7 @@ export default function Dashboard() {
     setIsProcessing(true);
     setErrorMessage(null);
     setSuccessPost(null);
-    setStatusMessage("Sanitizing sensitive data & preparing 1080x1080 artwork...");
+    setStatusMessage("Sanitizing sensitive data & preparing artwork...");
 
     try {
       const fd = new FormData();
@@ -347,11 +346,12 @@ export default function Dashboard() {
       setCompositePreview(data.previewUrl);
       setExchangeNo(data.nextExchangeNo);
       setTempCounter(String(data.nextExchangeNo));
-      setStatusMessage(null);
+      setIsModalOpen(false);
     } catch (err: any) {
       setErrorMessage(err.message || "Publishing failed");
     } finally {
       setIsProcessing(false);
+      setStatusMessage(null);
     }
   };
 
@@ -372,7 +372,7 @@ export default function Dashboard() {
                 Autonomous
               </span>
             </div>
-            <p className="text-xs text-gray-400">Zero-Input Classification & P2P Proof Publisher</p>
+            <p className="text-xs text-gray-400">P2P Proof Sanitizer & Facebook Publisher</p>
           </div>
         </div>
 
@@ -430,7 +430,7 @@ export default function Dashboard() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
-        {/* Error / Success Notifications */}
+        {/* Error Notification */}
         {errorMessage && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3 text-red-400 text-sm">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -444,6 +444,7 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Success Post Banner */}
         {successPost && (
           <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex items-center justify-between text-emerald-300 text-sm">
             <div className="flex items-center gap-3">
@@ -457,19 +458,27 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
-            <a
-              href={successPost.permalink_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-[#0d0e12] font-bold text-xs hover:bg-emerald-400 transition"
-            >
-              <span>View Post</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-[#232733] text-gray-200 font-bold text-xs hover:bg-[#2e3444] transition"
+              >
+                View Artwork
+              </button>
+              <a
+                href={successPost.permalink_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-[#0d0e12] font-bold text-xs hover:bg-emerald-400 transition"
+              >
+                <span>View Post</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
         )}
 
-        {/* UNIFIED DUAL DROPZONE (When screenshots not yet loaded) */}
+        {/* Unified Dropzone */}
         {!hasScreenshots && (
           <UnifiedDropzone
             isClassifying={isClassifying}
@@ -477,10 +486,10 @@ export default function Dashboard() {
           />
         )}
 
-        {/* CLASSIFIED SCREENSHOTS WORKSPACE (When screenshots are loaded) */}
+        {/* Classified Screenshots Workspace */}
         {hasScreenshots && (
           <div className="space-y-6">
-            {/* Autonomous Action Toolbar & Swap Bar */}
+            {/* Toolbar */}
             <div className="bg-[#14161d] border border-[#232733] rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 bg-[#0d0e12] border border-[#232733] px-3 py-1.5 rounded-xl text-xs">
@@ -623,29 +632,38 @@ export default function Dashboard() {
             {/* Primary Action Bar */}
             <section className="bg-[#14161d] border border-[#232733] rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="text-xs text-gray-400">
-                {isProcessing ? (
+                {isProcessing || isPreviewLoading ? (
                   <span className="flex items-center gap-2 text-[#E5A93C]">
                     <RefreshCw className="w-4 h-4 animate-spin" />
                     {statusMessage || "Processing..."}
                   </span>
                 ) : (
-                  <span>Ready. Review auto-redactions or manual blur zones before publishing.</span>
+                  <span>Ready. Review auto-redactions or click Preview Artwork before publishing.</span>
                 )}
               </div>
 
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <button
                   onClick={handleGeneratePreview}
-                  disabled={isProcessing}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#1d212b] border border-[#2a3040] text-gray-200 text-xs font-bold hover:bg-[#252b38] disabled:opacity-50 transition"
+                  disabled={isProcessing || isPreviewLoading}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#1d212b] border border-[#2a3040] text-gray-200 text-xs font-bold hover:bg-[#252b38] disabled:opacity-50 transition"
                 >
-                  <Eye className="w-4 h-4" />
-                  <span>Preview Artwork</span>
+                  {isPreviewLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-[#E5A93C]" />
+                      <span>Compositing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-4 h-4 text-[#E5A93C]" />
+                      <span>Preview Artwork</span>
+                    </>
+                  )}
                 </button>
 
                 <button
                   onClick={handlePublish}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isPreviewLoading}
                   className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#F3C363] to-[#E5A93C] text-[#0d0e12] text-xs font-extrabold hover:opacity-95 shadow-lg shadow-[#E5A93C]/20 disabled:opacity-50 transition active:scale-[0.98]"
                 >
                   <Send className="w-4 h-4" />
@@ -656,34 +674,16 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Composited Preview Drawer / Modal */}
-        {compositePreview && (
-          <section className="bg-[#14161d] border border-[#232733] rounded-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-[#232733] pb-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <h3 className="font-bold text-sm text-gray-200">
-                  Composited 1080x1080 Frame Preview (#{exchangeNo})
-                </h3>
-              </div>
-              <button
-                onClick={() => setCompositePreview(null)}
-                className="text-xs text-gray-400 hover:text-white"
-              >
-                Close Preview
-              </button>
-            </div>
-
-            <div className="flex justify-center bg-[#0d0e12] p-4 rounded-xl border border-[#232733]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={compositePreview}
-                alt="Composited Exchange Card"
-                className="w-full max-w-lg aspect-square object-contain rounded-xl shadow-2xl border border-[#232733]"
-              />
-            </div>
-          </section>
-        )}
+        {/* Interactive High-Fidelity Preview Modal */}
+        <PreviewModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          previewUrl={compositePreview}
+          exchangeNo={exchangeNo}
+          onConfirmPublish={handlePublish}
+          isPublishing={isProcessing}
+          publishingStatus={statusMessage}
+        />
       </main>
     </div>
   );
