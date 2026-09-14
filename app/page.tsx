@@ -20,6 +20,7 @@ import {
   Layers,
 } from "lucide-react";
 import PreviewModal from "@/components/preview-modal";
+import { generateDefaultCaption } from "@/lib/receipt-classifier";
 
 interface ManualBox {
   id: string;
@@ -46,18 +47,6 @@ const CURRENCIES = [
   { code: "BDT", label: "BDT 🇧🇩" },
   { code: "USD", label: "USD 🇺🇸" },
 ];
-
-function generateDefaultCaption(counter: number, fromCurr: string, toCurr: string) {
-  return `💸 Exchange Successful ✅
-Exchange ID: #${counter}
-Exchange Details:
-🟢 From: ${fromCurr}
-🔵 To: ${toCurr}
-
-🤝 Thank you for trusting us with your exchange!
-
-🔗 Join: .gg/bazarex`;
-}
 
 export default function Dashboard() {
   const [exchangeNo, setExchangeNo] = useState<number>(11042);

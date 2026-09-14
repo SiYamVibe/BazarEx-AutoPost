@@ -14,6 +14,18 @@ export const CURRENCY_MAP: Record<CurrencyCode, CurrencyInfo> = {
   USD: { code: "USD", label: "USD 🇺🇸" },
 };
 
+export function generateDefaultCaption(counter: number, fromCurr: string, toCurr: string): string {
+  return `💸 Exchange Successful ✅
+Exchange ID: #${counter}
+Exchange Details:
+🟢 From: ${fromCurr}
+🔵 To: ${toCurr}
+
+🤝 Thank you for trusting us with your exchange!
+
+🔗 Join: .gg/bazarex`;
+}
+
 const RECEIVED_PATTERNS = [
   /cash\s*out\s*successful/i,
   /received\s*from/i,
