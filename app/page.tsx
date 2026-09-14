@@ -335,6 +335,7 @@ export default function Dashboard() {
       setCompositePreview(data.previewUrl);
       setExchangeNo(data.nextExchangeNo);
       setTempCounter(String(data.nextExchangeNo));
+      setCaptionCustomized(false);
       setIsModalOpen(false);
     } catch (err: any) {
       setErrorMessage(err.message || "Publishing failed");
