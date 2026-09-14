@@ -10,12 +10,12 @@ export interface CompositeOptions {
 }
 
 // Pixel-perfect layout coordinates matched to ebg.webp
-const CARD_WIDTH = 350;
+const CARD_WIDTH = 354;
 const CARD_HEIGHT = 598;
 const CARD_RADIUS = 36;
 
-const LEFT_CARD_OFFSET = { left: 139, top: 283 };
-const RIGHT_CARD_OFFSET = { left: 538, top: 285 };
+const LEFT_CARD_OFFSET = { left: 138, top: 278 };
+const RIGHT_CARD_OFFSET = { left: 532, top: 278 };
 
 const COUNTER_OFFSET = { left: 445, top: 138 };
 const COUNTER_WIDTH = 182;
@@ -85,15 +85,8 @@ export async function compositeExchangeCard(options: CompositeOptions): Promise<
   // Dynamic counter badge overlay
   const counterOverlay = createCounterSvg(exchangeNo);
 
-  // Composite cards underneath the template frame so bezels cleanly clip screenshots
-  const finalized = await sharp({
-    create: {
-      width: 1024,
-      height: 1024,
-      channels: 4,
-      background: { r: 22, g: 22, b: 27, alpha: 1 },
-    },
-  })
+  // Read base template (handles .webp natively) and composite in a single pass
+  const finalized = await sharp(framePath)
     .composite([
       {
         input: processedLeft,
@@ -104,11 +97,6 @@ export async function compositeExchangeCard(options: CompositeOptions): Promise<
         input: processedRight,
         left: RIGHT_CARD_OFFSET.left,
         top: RIGHT_CARD_OFFSET.top,
-      },
-      {
-        input: framePath,
-        left: 0,
-        top: 0,
       },
       {
         input: counterOverlay,
