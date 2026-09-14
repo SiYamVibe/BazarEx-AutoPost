@@ -29,7 +29,7 @@ function createCounterSvg(exchangeNo: number): Buffer {
             font-size="46"
             font-weight="900"
             letter-spacing="-1"
-            fill="#111111">#${exchangeNo}</text>
+            fill="#111111">${exchangeNo}</text>
     </svg>
   `);
 }
