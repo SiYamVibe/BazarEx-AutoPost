@@ -21,7 +21,7 @@ Exchange Details:
 🟢 From: ${fromCurr}
 🔵 To: ${toCurr}
 🤝 Thank you for trusting us with your exchange!
-Join: gg.bzr.lt`;
+🔗 Join: Link In Bio`;
 }
 
 const RECEIVED_PATTERNS = [
