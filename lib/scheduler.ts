@@ -3,7 +3,6 @@ import path from "path";
 
 const SCHEDULE_PATH = path.join(process.cwd(), "data", "schedule.json");
 export const INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
-const MIN_FB_SCHEDULE_LEAD_MS = 10 * 60 * 1000; // Facebook requires >= 10 mins in future
 
 let lockPromise = Promise.resolve();
 
@@ -50,12 +49,14 @@ export async function getNextPostSlot(): Promise<ScheduleSlot> {
       };
     }
 
-    // Schedule 30 minutes after previous post
-    let targetTime = lastTime + INTERVAL_MS;
-
-    // Ensure it respects Facebook Graph API lead time (>= 10 mins from now)
-    if (targetTime - now < MIN_FB_SCHEDULE_LEAD_MS) {
-      targetTime = now + MIN_FB_SCHEDULE_LEAD_MS + 60000; // +11 mins safety
+    // Schedule:
+    // 1. If previous post is already queued in the future (lastTime > now), add exactly 30 minutes to that future slot.
+    // 2. If previous post was in the past (within the last 30 minutes), the next slot must be now + 30 minutes.
+    let targetTime: number;
+    if (lastTime > now) {
+      targetTime = lastTime + INTERVAL_MS;
+    } else {
+      targetTime = now + INTERVAL_MS;
     }
 
     const unixTimestamp = Math.floor(targetTime / 1000);
@@ -93,8 +94,8 @@ export async function getScheduleStatus(): Promise<{
     } catch {}
 
     const now = Date.now();
-    const isQueueBusy = lastTime > 0 && now - lastTime < INTERVAL_MS;
-    const nextAvailableTime = isQueueBusy ? lastTime + INTERVAL_MS : now;
+    const isQueueBusy = lastTime > 0 && (lastTime > now || now - lastTime < INTERVAL_MS);
+    const nextAvailableTime = lastTime > now ? lastTime + INTERVAL_MS : (isQueueBusy ? now + INTERVAL_MS : now);
 
     return {
       lastScheduledTime: lastTime || null,
