@@ -1,5 +1,18 @@
 import { NextResponse } from "next/server";
 import { getCounter, setCounter } from "@/lib/counter";
+import crypto from "crypto";
+
+export const dynamic = "force-dynamic";
+
+function verifyAuth(request: Request): boolean {
+  const expectedKey = process.env.EXTERNAL_BOT_API_KEY?.trim();
+  const authHeader = request.headers.get("x-api-key")?.trim();
+  if (!expectedKey || !authHeader) return false;
+
+  const a = Buffer.from(authHeader);
+  const b = Buffer.from(expectedKey);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 export async function GET() {
   try {
@@ -11,6 +24,10 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  if (!verifyAuth(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const val = Number(body.exchangeNo);

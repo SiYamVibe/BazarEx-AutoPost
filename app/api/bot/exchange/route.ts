@@ -1,13 +1,39 @@
 import { NextResponse } from "next/server";
 import { enqueueBotExchange, getJobById, getQueueStatus } from "@/lib/queue";
 
+import crypto from "crypto";
+
 export const dynamic = "force-dynamic";
+
+function isPrivateHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "0.0.0.0" ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host === "169.254.169.254" // Cloud metadata IP
+  ) {
+    return true;
+  }
+
+  // Private IPv4 ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10)
+  if (/^(?:10\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.|169\.254\.|100\.(?:6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.)/.test(host)) {
+    return true;
+  }
+
+  return false;
+}
 
 function isValidUrl(url: unknown): boolean {
   if (typeof url !== "string") return false;
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    if (isPrivateHost(parsed.hostname)) return false;
+    return true;
   } catch {
     return false;
   }
@@ -16,7 +42,11 @@ function isValidUrl(url: unknown): boolean {
 function verifyAuth(request: Request): boolean {
   const expectedKey = process.env.EXTERNAL_BOT_API_KEY?.trim();
   const authHeader = request.headers.get("x-api-key")?.trim();
-  return Boolean(expectedKey && authHeader && authHeader === expectedKey);
+  if (!expectedKey || !authHeader) return false;
+
+  const a = Buffer.from(authHeader);
+  const b = Buffer.from(expectedKey);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 export async function GET(request: Request) {

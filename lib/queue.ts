@@ -171,12 +171,15 @@ async function runWorkerLoop(): Promise<void> {
 async function processJob(job: QueueJob): Promise<void> {
   const { images, exchangeNo } = job;
 
-  // 1. Ingest images
+  // 1. Ingest images (max 15MB per file)
+  const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
   const buffers = await Promise.all(
     images.map(async (url) => {
       const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
       if (!res.ok) throw new Error(`Failed to fetch image from ${url} (HTTP ${res.status})`);
-      return Buffer.from(await res.arrayBuffer());
+      const ab = await res.arrayBuffer();
+      if (ab.byteLength > MAX_IMAGE_BYTES) throw new Error(`Image from ${url} exceeds 15MB limit`);
+      return Buffer.from(ab);
     })
   );
 
