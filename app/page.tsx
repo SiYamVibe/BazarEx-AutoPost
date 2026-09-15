@@ -454,14 +454,14 @@ export default function Dashboard() {
                               hour: "2-digit",
                               minute: "2-digit",
                             })
-                          : "later (25m interval)"
+                          : "later (30m interval)"
                       }`
                     : successPost.simulated
                     ? "Simulated Publish Successful"
                     : "Published to Facebook Page!"}
                 </p>
                 <p className="text-xs text-emerald-400/80">
-                  {successPost.scheduled ? "Queued with 25-min interval · " : ""}Counter auto-incremented to <span className="font-bold">#{exchangeNo}</span>
+                  {successPost.scheduled ? "Queued with 30-min interval · " : ""}Counter auto-incremented to <span className="font-bold">#{exchangeNo}</span>
                 </p>
               </div>
             </div>

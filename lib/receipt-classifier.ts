@@ -20,10 +20,8 @@ Exchange ID: #${counter}
 Exchange Details:
 🟢 From: ${fromCurr}
 🔵 To: ${toCurr}
-
 🤝 Thank you for trusting us with your exchange!
-
-🔗 Join: .gg/bazarex`;
+Join: gg.bzr.lt`;
 }
 
 const RECEIVED_PATTERNS = [

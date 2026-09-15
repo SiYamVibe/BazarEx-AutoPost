@@ -2,8 +2,8 @@ import fs from "fs";
 import path from "path";
 
 const SCHEDULE_PATH = path.join(process.cwd(), "data", "schedule.json");
-export const INTERVAL_MS = 25 * 60 * 1000; // 25 minutes
-const MIN_FB_SCHEDULE_LEAD_MS = 10 * 60 * 1000; // FB requires >= 10 mins in future
+export const INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+const MIN_FB_SCHEDULE_LEAD_MS = 10 * 60 * 1000; // Facebook requires >= 10 mins in future
 
 let lockPromise = Promise.resolve();
 
@@ -42,31 +42,21 @@ export async function getNextPostSlot(): Promise<ScheduleSlot> {
       }
     } catch {}
 
-    // If no previous post, or last post was more than 25 minutes ago: publish immediately
+    // If no previous post, or last post was more than 30 minutes ago: publish immediately
     if (!lastTime || now - lastTime >= INTERVAL_MS) {
-      const updatedData = { lastScheduledTime: now };
-      const tempPath = `${SCHEDULE_PATH}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
-      fs.writeFileSync(tempPath, JSON.stringify(updatedData, null, 2), "utf8");
-      fs.renameSync(tempPath, SCHEDULE_PATH);
-
       return {
         isScheduled: false,
         scheduledTimeMs: now,
       };
     }
 
-    // Schedule 25 minutes after previous post
+    // Schedule 30 minutes after previous post
     let targetTime = lastTime + INTERVAL_MS;
 
     // Ensure it respects Facebook Graph API lead time (>= 10 mins from now)
     if (targetTime - now < MIN_FB_SCHEDULE_LEAD_MS) {
       targetTime = now + MIN_FB_SCHEDULE_LEAD_MS + 60000; // +11 mins safety
     }
-
-    const updatedData = { lastScheduledTime: targetTime };
-    const tempPath = `${SCHEDULE_PATH}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
-    fs.writeFileSync(tempPath, JSON.stringify(updatedData, null, 2), "utf8");
-    fs.renameSync(tempPath, SCHEDULE_PATH);
 
     const unixTimestamp = Math.floor(targetTime / 1000);
     return {
@@ -75,6 +65,16 @@ export async function getNextPostSlot(): Promise<ScheduleSlot> {
       unixTimestamp,
       scheduledIso: new Date(targetTime).toISOString(),
     };
+  });
+}
+
+export async function commitPostSlot(scheduledTimeMs: number): Promise<void> {
+  return serialize(async () => {
+    ensureDataDir();
+    const updatedData = { lastScheduledTime: scheduledTimeMs };
+    const tempPath = `${SCHEDULE_PATH}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+    fs.writeFileSync(tempPath, JSON.stringify(updatedData, null, 2), "utf8");
+    fs.renameSync(tempPath, SCHEDULE_PATH);
   });
 }
 

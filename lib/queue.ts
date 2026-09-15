@@ -4,7 +4,7 @@ import sharp from "sharp";
 import { classifyTwoScreenshots, generateDefaultCaption } from "./receipt-classifier";
 import { detectSensitiveZones, applyBlurRedactions } from "./privacy-guard";
 import { compositeExchangeCard } from "./image-processor";
-import { getNextPostSlot } from "./scheduler";
+import { getNextPostSlot, commitPostSlot } from "./scheduler";
 
 export interface QueueJob {
   id: string;
@@ -226,6 +226,7 @@ async function processJob(job: QueueJob): Promise<void> {
   if (isMock) {
     const mockPostId = `108${Math.floor(Math.random() * 900000000 + 100000000)}`;
     job.postUrl = `https://facebook.com/${mockPostId}`;
+    await commitPostSlot(scheduleSlot.scheduledTimeMs);
   } else {
     const metaFormData = new FormData();
     const imageBlob = new Blob([new Uint8Array(finalizedBuffer)], { type: "image/png" });
@@ -259,6 +260,7 @@ async function processJob(job: QueueJob): Promise<void> {
     }
 
     job.postUrl = parsed.permalink_url || (parsed.id ? `https://facebook.com/${parsed.id}` : "");
+    await commitPostSlot(scheduleSlot.scheduledTimeMs);
   }
 }
 

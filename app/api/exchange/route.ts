@@ -4,7 +4,7 @@ import { detectSensitiveZones, applyBlurRedactions, BoundingBox } from "@/lib/pr
 import { compositeExchangeCard } from "@/lib/image-processor";
 import { getCounter, incrementCounter } from "@/lib/counter";
 
-import { getNextPostSlot } from "@/lib/scheduler";
+import { getNextPostSlot, commitPostSlot } from "@/lib/scheduler";
 
 export const dynamic = "force-dynamic";
 
@@ -157,6 +157,9 @@ export async function POST(request: Request) {
       fbResponseData.scheduled = scheduleSlot.isScheduled;
       fbResponseData.scheduled_publish_time = scheduleSlot.unixTimestamp;
     }
+
+    // Commit scheduled slot
+    await commitPostSlot(scheduleSlot.scheduledTimeMs);
 
     // Atomically increment counter ONLY after successful response
     const newCounter = await incrementCounter();
