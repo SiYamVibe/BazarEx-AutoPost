@@ -5,7 +5,7 @@ import path from "path";
 export interface CompositeOptions {
   receivedImageBuffer: Buffer;
   sentImageBuffer: Buffer;
-  exchangeNo: number;
+  exchangeNo: number | string;
   customFramePath?: string;
 }
 
@@ -20,7 +20,7 @@ const COUNTER_OFFSET = { left: 445, top: 138 };
 const COUNTER_WIDTH = 182;
 const COUNTER_HEIGHT = 74;
 
-function createCounterSvg(exchangeNo: number): Buffer {
+function createCounterSvg(exchangeNo: number | string): Buffer {
   return Buffer.from(`
     <svg width="${COUNTER_WIDTH}" height="${COUNTER_HEIGHT}" viewBox="0 0 ${COUNTER_WIDTH} ${COUNTER_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
       <text x="50%" y="53"

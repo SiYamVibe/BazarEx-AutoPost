@@ -14,7 +14,7 @@ export const CURRENCY_MAP: Record<CurrencyCode, CurrencyInfo> = {
   USD: { code: "USD", label: "USD 🇺🇸" },
 };
 
-export function generateDefaultCaption(counter: number, fromCurr: string, toCurr: string): string {
+export function generateDefaultCaption(counter: number | string, fromCurr: string, toCurr: string): string {
   return `💸 Exchange Successful ✅
 Exchange ID: #${counter}
 Exchange Details:

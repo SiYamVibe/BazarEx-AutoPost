@@ -3,7 +3,6 @@ import sharp from "sharp";
 import { classifyTwoScreenshots, generateDefaultCaption } from "@/lib/receipt-classifier";
 import { detectSensitiveZones, applyBlurRedactions } from "@/lib/privacy-guard";
 import { compositeExchangeCard } from "@/lib/image-processor";
-import { getCounter, incrementCounter } from "@/lib/counter";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +29,7 @@ export async function POST(request: Request) {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { error: "Please provide exactly 2 image URLs in the 'images' array." },
+      { error: "Invalid JSON. 'images' array and 'exchangeNo' are required." },
       { status: 400 }
     );
   }
@@ -46,6 +45,19 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  const rawExchangeNo = body.exchangeNo;
+  if (
+    rawExchangeNo === undefined ||
+    rawExchangeNo === null ||
+    (typeof rawExchangeNo === "string" && !rawExchangeNo.trim())
+  ) {
+    return NextResponse.json(
+      { error: "'exchangeNo' is required." },
+      { status: 400 }
+    );
+  }
+  const exchangeNo = typeof rawExchangeNo === "string" ? rawExchangeNo.trim() : rawExchangeNo;
 
   try {
     const images = body.images as string[];
@@ -80,8 +92,7 @@ export async function POST(request: Request) {
       applyBlurRedactions(sentBuf, boxesSent),
     ]);
 
-    // 4. Composite onto template
-    const exchangeNo = await getCounter();
+    // 4. Composite onto template using client-provided exchangeNo
     const finalizedBuffer = await compositeExchangeCard({
       receivedImageBuffer: sanitizedReceived,
       sentImageBuffer: sanitizedSent,
@@ -133,9 +144,6 @@ export async function POST(request: Request) {
 
       postUrl = parsed.permalink_url || (parsed.id ? `https://facebook.com/${parsed.id}` : "");
     }
-
-    // 7. Atomically increment counter upon 200 OK from Meta
-    await incrementCounter();
 
     return NextResponse.json({
       success: true,
