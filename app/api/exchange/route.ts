@@ -4,6 +4,8 @@ import { detectSensitiveZones, applyBlurRedactions, BoundingBox } from "@/lib/pr
 import { compositeExchangeCard } from "@/lib/image-processor";
 import { getCounter, incrementCounter } from "@/lib/counter";
 
+import { getNextPostSlot } from "@/lib/scheduler";
+
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
@@ -79,6 +81,9 @@ export async function POST(request: Request) {
     // Check credentials or dryRun mode
     const isMock = dryRun || !pageId || !accessToken || pageId === "your_facebook_page_id_here";
 
+    // Determine 25-minute schedule slot
+    const scheduleSlot = await getNextPostSlot();
+
     let fbResponseData: any = null;
 
     if (isMock) {
@@ -89,6 +94,8 @@ export async function POST(request: Request) {
         post_id: `${pageId || "10000000000000"}_${mockPostId}`,
         permalink_url: `https://facebook.com/${mockPostId}`,
         simulated: true,
+        scheduled: scheduleSlot.isScheduled,
+        scheduled_publish_time: scheduleSlot.unixTimestamp,
       };
     } else {
       // Call Meta Graph API
@@ -96,7 +103,13 @@ export async function POST(request: Request) {
       const imageBlob = new Blob([new Uint8Array(finalizedBuffer)], { type: "image/png" });
       metaFormData.append("source", imageBlob, `exchange_${exchangeNo}.png`);
       metaFormData.append("message", caption);
-      metaFormData.append("published", "true");
+
+      if (scheduleSlot.isScheduled && scheduleSlot.unixTimestamp) {
+        metaFormData.append("published", "false");
+        metaFormData.append("scheduled_publish_time", scheduleSlot.unixTimestamp.toString());
+      } else {
+        metaFormData.append("published", "true");
+      }
 
       const fbUrl = `https://graph.facebook.com/v19.0/${pageId}/photos?access_token=${encodeURIComponent(accessToken)}`;
 
@@ -141,6 +154,8 @@ export async function POST(request: Request) {
       if (fbResponseData.id && !fbResponseData.permalink_url) {
         fbResponseData.permalink_url = `https://facebook.com/${fbResponseData.id}`;
       }
+      fbResponseData.scheduled = scheduleSlot.isScheduled;
+      fbResponseData.scheduled_publish_time = scheduleSlot.unixTimestamp;
     }
 
     // Atomically increment counter ONLY after successful response
@@ -151,6 +166,7 @@ export async function POST(request: Request) {
       publishedExchangeNo: exchangeNo,
       nextExchangeNo: newCounter,
       post: fbResponseData,
+      schedule: scheduleSlot,
       previewUrl: `data:image/png;base64,${finalizedBuffer.toString("base64")}`,
     });
   } catch (error: any) {

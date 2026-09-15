@@ -90,7 +90,13 @@ export default function Dashboard() {
 
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successPost, setSuccessPost] = useState<{ id: string; permalink_url: string; simulated?: boolean } | null>(null);
+  const [successPost, setSuccessPost] = useState<{
+    id: string;
+    permalink_url: string;
+    simulated?: boolean;
+    scheduled?: boolean;
+    scheduled_publish_time?: number;
+  } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Fetch counter on mount
@@ -441,10 +447,21 @@ export default function Dashboard() {
               <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
               <div>
                 <p className="font-semibold">
-                  {successPost.simulated ? "Simulated Publish Successful" : "Published to Facebook Page!"}
+                  {successPost.scheduled
+                    ? `Scheduled on Facebook for ${
+                        successPost.scheduled_publish_time
+                          ? new Date(successPost.scheduled_publish_time * 1000).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "later (25m interval)"
+                      }`
+                    : successPost.simulated
+                    ? "Simulated Publish Successful"
+                    : "Published to Facebook Page!"}
                 </p>
                 <p className="text-xs text-emerald-400/80">
-                  Counter auto-incremented to <span className="font-bold">#{exchangeNo}</span>
+                  {successPost.scheduled ? "Queued with 25-min interval · " : ""}Counter auto-incremented to <span className="font-bold">#{exchangeNo}</span>
                 </p>
               </div>
             </div>

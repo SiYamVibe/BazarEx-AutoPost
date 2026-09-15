@@ -4,6 +4,8 @@ import { classifyTwoScreenshots, generateDefaultCaption } from "@/lib/receipt-cl
 import { detectSensitiveZones, applyBlurRedactions } from "@/lib/privacy-guard";
 import { compositeExchangeCard } from "@/lib/image-processor";
 
+import { getNextPostSlot } from "@/lib/scheduler";
+
 export const dynamic = "force-dynamic";
 
 function isValidUrl(url: unknown): boolean {
@@ -106,11 +108,12 @@ export async function POST(request: Request) {
       classification.toCurrency.label
     );
 
-    // 6. Post to Meta Graph API
+    // 6. Schedule / Post to Meta Graph API
     const pageId = process.env.FB_PAGE_ID?.trim();
     const accessToken = process.env.FB_PAGE_ACCESS_TOKEN?.trim();
     const isMock = !pageId || !accessToken || pageId === "your_facebook_page_id_here";
 
+    const scheduleSlot = await getNextPostSlot();
     let postUrl = "";
 
     if (isMock) {
@@ -121,7 +124,13 @@ export async function POST(request: Request) {
       const imageBlob = new Blob([new Uint8Array(finalizedBuffer)], { type: "image/png" });
       metaFormData.append("source", imageBlob, `exchange_${exchangeNo}.png`);
       metaFormData.append("message", caption);
-      metaFormData.append("published", "true");
+
+      if (scheduleSlot.isScheduled && scheduleSlot.unixTimestamp) {
+        metaFormData.append("published", "false");
+        metaFormData.append("scheduled_publish_time", scheduleSlot.unixTimestamp.toString());
+      } else {
+        metaFormData.append("published", "true");
+      }
 
       const fbUrl = `https://graph.facebook.com/v19.0/${pageId}/photos?access_token=${encodeURIComponent(accessToken)}`;
       const fbRes = await fetch(fbUrl, {
@@ -149,6 +158,7 @@ export async function POST(request: Request) {
       success: true,
       exchangeNo,
       postUrl,
+      schedule: scheduleSlot,
     });
   } catch (error: any) {
     console.error("Bot exchange endpoint error:", error);
