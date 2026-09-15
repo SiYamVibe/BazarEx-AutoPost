@@ -2,6 +2,10 @@ import sharp from "sharp";
 import fs from "fs";
 import path from "path";
 
+// Optimize sharp for low-memory container environments (Render 512MB RAM)
+sharp.cache(false);
+sharp.concurrency(1);
+
 export interface CompositeOptions {
   receivedImageBuffer: Buffer;
   sentImageBuffer: Buffer;

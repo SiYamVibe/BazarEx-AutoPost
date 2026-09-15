@@ -1,4 +1,4 @@
-import { createWorker } from "tesseract.js";
+import { extractOcrBoxes } from "./ocr-worker";
 import sharp from "sharp";
 
 export interface BoundingBox {
@@ -103,12 +103,7 @@ export async function detectSensitiveZones(
     const scaleX = origW / prepW;
     const scaleY = origH / prepH;
 
-    const worker = await createWorker("eng");
-    const ret = await worker.recognize(preprocessedBuf);
-    await worker.terminate();
-
-    const words = ret.data.words || [];
-    const lines = ret.data.lines || [];
+    const { words, lines } = await extractOcrBoxes(preprocessedBuf);
 
     const mapBox = (
       bbox: { x0: number; y0: number; x1: number; y1: number },

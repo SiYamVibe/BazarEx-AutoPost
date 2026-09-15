@@ -1,4 +1,5 @@
-import { createWorker } from "tesseract.js";
+import { extractOcrText } from "./ocr-worker";
+export { extractOcrText };
 
 export type CurrencyCode = "INR" | "PKR" | "BDT" | "USD";
 
@@ -129,18 +130,6 @@ export function scoreReceiptIntent(text: string): { receivedScore: number; sentS
   return { receivedScore, sentScore };
 }
 
-export async function extractOcrText(buffer: Buffer): Promise<string> {
-  try {
-    const worker = await createWorker("eng");
-    const ret = await worker.recognize(buffer);
-    await worker.terminate();
-    return ret.data.text || "";
-  } catch (err) {
-    console.error("OCR text extraction error:", err);
-    return "";
-  }
-}
-
 export interface ClassificationResult {
   receivedIndex: 0 | 1;
   sentIndex: 0 | 1;
@@ -153,7 +142,8 @@ export async function classifyTwoScreenshots(
   buf0: Buffer,
   buf1: Buffer
 ): Promise<ClassificationResult> {
-  const [text0, text1] = await Promise.all([extractOcrText(buf0), extractOcrText(buf1)]);
+  const text0 = await extractOcrText(buf0);
+  const text1 = await extractOcrText(buf1);
 
   const score0 = scoreReceiptIntent(text0);
   const score1 = scoreReceiptIntent(text1);

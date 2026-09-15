@@ -45,21 +45,15 @@ export async function POST(request: Request) {
     let autoBoxesSent: BoundingBox[] = [];
 
     if (autoBlur) {
-      const [boxesR, boxesS] = await Promise.all([
-        detectSensitiveZones(receivedBuf, recW, recH),
-        detectSensitiveZones(sentBuf, sentW, sentH),
-      ]);
-      autoBoxesReceived = boxesR;
-      autoBoxesSent = boxesS;
+      autoBoxesReceived = await detectSensitiveZones(receivedBuf, recW, recH);
+      autoBoxesSent = await detectSensitiveZones(sentBuf, sentW, sentH);
     }
 
     const allReceivedBoxes = [...autoBoxesReceived, ...(manualBoxes.received || [])];
     const allSentBoxes = [...autoBoxesSent, ...(manualBoxes.sent || [])];
 
-    const [sanitizedReceived, sanitizedSent] = await Promise.all([
-      applyBlurRedactions(receivedBuf, allReceivedBoxes),
-      applyBlurRedactions(sentBuf, allSentBoxes),
-    ]);
+    const sanitizedReceived = await applyBlurRedactions(receivedBuf, allReceivedBoxes);
+    const sanitizedSent = await applyBlurRedactions(sentBuf, allSentBoxes);
 
     const compositedBuffer = await compositeExchangeCard({
       receivedImageBuffer: sanitizedReceived,

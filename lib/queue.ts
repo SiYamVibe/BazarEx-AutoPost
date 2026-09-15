@@ -185,21 +185,15 @@ async function processJob(job: QueueJob): Promise<void> {
   const receivedBuf = buffers[classification.receivedIndex];
   const sentBuf = buffers[classification.sentIndex];
 
-  // 3. Privacy Guard
-  const [recMeta, sentMeta] = await Promise.all([
-    sharp(receivedBuf).metadata(),
-    sharp(sentBuf).metadata(),
-  ]);
+  // 3. Privacy Guard (Sequential to minimize RAM)
+  const recMeta = await sharp(receivedBuf).metadata();
+  const sentMeta = await sharp(sentBuf).metadata();
 
-  const [boxesReceived, boxesSent] = await Promise.all([
-    detectSensitiveZones(receivedBuf, recMeta.width || 1080, recMeta.height || 1920),
-    detectSensitiveZones(sentBuf, sentMeta.width || 1080, sentMeta.height || 1920),
-  ]);
+  const boxesReceived = await detectSensitiveZones(receivedBuf, recMeta.width || 1080, recMeta.height || 1920);
+  const boxesSent = await detectSensitiveZones(sentBuf, sentMeta.width || 1080, sentMeta.height || 1920);
 
-  const [sanitizedReceived, sanitizedSent] = await Promise.all([
-    applyBlurRedactions(receivedBuf, boxesReceived),
-    applyBlurRedactions(sentBuf, boxesSent),
-  ]);
+  const sanitizedReceived = await applyBlurRedactions(receivedBuf, boxesReceived);
+  const sanitizedSent = await applyBlurRedactions(sentBuf, boxesSent);
 
   // 4. Composite artwork
   const finalizedBuffer = await compositeExchangeCard({
