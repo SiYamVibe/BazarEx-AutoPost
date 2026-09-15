@@ -1,4 +1,4 @@
-import { createWorker, Worker } from "tesseract.js";
+import { createWorker, type Worker } from "tesseract.js";
 
 let sharedWorker: Worker | null = null;
 let workerInitPromise: Promise<Worker> | null = null;

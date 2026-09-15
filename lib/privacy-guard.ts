@@ -13,22 +13,27 @@ export interface BoundingBox {
 // Sensitive regex patterns
 const UPI_REGEX = /[\w.\-_]{2,}@(okhdfcbank|okaxis|ybl|ibl|paytm|axl|apl|sbi|postbank|barodampay|upi|fednet|yesbank|idfcbank|icici|kotak|pnb|[a-z]{3,})/i;
 const MASKED_REGEX = /\b\d{2,4}[*xX]{3,10}\d{2,4}\b/;
-const TID_LABEL_REGEX = /\b(?:tid|txn|rrn|utr|ref|transaction\s*id|reference\s*no|trans\s*id)\b/i;
-const SENSITIVE_LABEL_REGEX = /\b(?:tid|txn|rrn|utr|ref|transaction|reference|upi|mobile|phone|acc|account|sent\s*to|paid\s*to)\b/i;
+const TID_LABEL_REGEX = /\b(?:tid|txn|rrn|utr|ref|transaction\s*id|reference\s*no|trans\s*id|txn\s*id)\b/i;
+const SENSITIVE_LABEL_REGEX = /\b(?:tid|txn|rrn|utr|ref|transaction|reference|upi|mobile|phone|acc|account|sent\s*to|paid\s*to|to\s+[a-z]+)\b/i;
 
 function classifySensitiveToken(raw: string): string | null {
   const clean = raw.trim();
   if (!clean || clean.length < 3) return null;
 
-  // 1. UPI Handle
-  if (UPI_REGEX.test(clean)) return "UPI Handle";
+  // 1. UPI Handle or any handle containing '@'
+  if (clean.includes("@") || UPI_REGEX.test(clean)) return "UPI Handle";
 
   // 2. Masked identifier (e.g. 03******2538)
   if (MASKED_REGEX.test(clean)) return "Masked Phone/Account";
 
+  // 3. UUID / Alphanumeric Transaction Ref with hyphens (e.g. 01a09abc-ea83-73e1-9415-9c7d46643f41)
+  if (/^[0-9a-fA-F-]{16,45}$/i.test(clean) && clean.includes("-")) {
+    return "Transaction UUID / Ref";
+  }
+
   const digits = clean.replace(/\D/g, "");
 
-  // 3. Pakistani Mobile (03XXXXXXXXX or +923XXXXXXXXX)
+  // 4. Pakistani Mobile (03XXXXXXXXX or +923XXXXXXXXX)
   if (
     (digits.startsWith("03") && digits.length === 11) ||
     (digits.startsWith("923") && digits.length === 12)
@@ -36,7 +41,7 @@ function classifySensitiveToken(raw: string): string | null {
     return "Pakistani Phone Number";
   }
 
-  // 4. Bangladeshi Mobile (01XXXXXXXXX or +8801XXXXXXXXX)
+  // 5. Bangladeshi Mobile (01XXXXXXXXX or +8801XXXXXXXXX)
   if (
     (digits.startsWith("01") && digits.length === 11) ||
     (digits.startsWith("8801") && digits.length === 13)
@@ -44,7 +49,7 @@ function classifySensitiveToken(raw: string): string | null {
     return "Bangladeshi Phone Number";
   }
 
-  // 5. Indian Mobile (10 digits starting with 6-9, or +91)
+  // 6. Indian Mobile (10 digits starting with 6-9, or +91)
   if (
     (digits.length === 10 && /^[6-9]/.test(digits)) ||
     (digits.startsWith("91") && digits.length === 12 && /^[6-9]/.test(digits.slice(2)))
@@ -52,9 +57,9 @@ function classifySensitiveToken(raw: string): string | null {
     return "Indian Phone Number";
   }
 
-  // 6. Continuous 10-18 digits (TID, UTR, Ref ID, Account Number)
+  // 7. Continuous 8-18 digits (TID, UTR, Ref ID, Account Number, Phone)
   if (
-    digits.length >= 10 &&
+    digits.length >= 8 &&
     digits.length <= 18 &&
     !digits.startsWith("2024") &&
     !digits.startsWith("2025") &&
@@ -63,8 +68,8 @@ function classifySensitiveToken(raw: string): string | null {
     return "Transaction ID / Phone";
   }
 
-  // 7. Alphanumeric reference code (e.g. CICAgMJXsHBZg)
-  if (/^[A-Z0-9]{10,24}$/i.test(clean)) {
+  // 8. Alphanumeric reference code (e.g. CICAgMJXsHBZg)
+  if (/^[A-Z0-9]{10,32}$/i.test(clean)) {
     const digitCount = (clean.match(/\d/g) || []).length;
     if (digitCount >= 3 && !clean.includes("2025") && !clean.includes("2026")) {
       return "Transaction / Ref ID";
@@ -139,16 +144,21 @@ export async function detectSensitiveZones(
       }
     }
 
-    // 2. Scan lines & handle adjacent / below labels (TID, Transaction ID, Sent To, etc.)
+    // 2. Scan entire lines & handle contextual labels (TID, UPI @, to Name, etc.)
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const lineText = line.text.trim();
       if (!lineText) continue;
 
+      // (a) Line contains '@' (UPI Handle)
+      if (lineText.includes("@")) {
+        detected.push(mapBox(line.bbox, lineText, "UPI Handle Line"));
+      }
+
       const hasTidLabel = TID_LABEL_REGEX.test(lineText);
       const hasSensitiveLabel = SENSITIVE_LABEL_REGEX.test(lineText);
 
-      // (a) Check same-line value
+      // (b) Same-line sensitive value
       if (hasTidLabel || hasSensitiveLabel) {
         for (const w of line.words || []) {
           const wt = w.text.trim();
@@ -158,20 +168,26 @@ export async function detectSensitiveZones(
           }
         }
 
-        // (b) Capture value immediately BELOW within 45px vertical threshold
+        // (c) Capture value immediately BELOW within 55px vertical threshold
         if (i + 1 < lines.length) {
           const nextLine = lines[i + 1];
           const lineBottomOrig = line.bbox.y1 * scaleY;
           const nextLineTopOrig = nextLine.bbox.y0 * scaleY;
           const verticalDiff = nextLineTopOrig - lineBottomOrig;
 
-          if (verticalDiff >= -10 && verticalDiff <= 45) {
-            for (const nw of nextLine.words || []) {
-              const nwt = nw.text.trim();
-              const reason = classifySensitiveToken(nwt);
-              const digits = nwt.replace(/\D/g, "");
-              if (reason || (hasTidLabel && digits.length >= 6) || digits.length >= 8) {
-                detected.push(mapBox(nw.bbox, nwt, reason || (hasTidLabel ? "TID Below Label" : "Sensitive Below Label")));
+          if (verticalDiff >= -10 && verticalDiff <= 55) {
+            const nextText = nextLine.text.trim();
+            // If next line contains @ or sensitive tokens or UUID, blur whole next line
+            if (nextText.includes("@") || /[0-9a-fA-F-]{12,}/.test(nextText) || nextText.replace(/\D/g, "").length >= 8) {
+              detected.push(mapBox(nextLine.bbox, nextText, hasTidLabel ? "TID Below Label" : "Sensitive Below Label"));
+            } else {
+              for (const nw of nextLine.words || []) {
+                const nwt = nw.text.trim();
+                const reason = classifySensitiveToken(nwt);
+                const digits = nwt.replace(/\D/g, "");
+                if (reason || (hasTidLabel && digits.length >= 6) || digits.length >= 8) {
+                  detected.push(mapBox(nw.bbox, nwt, reason || (hasTidLabel ? "TID Below Label" : "Sensitive Below Label")));
+                }
               }
             }
           }
@@ -251,7 +267,7 @@ export async function applyBlurRedactions(
         left: b.x,
         top: b.y,
       });
-    } catch (e) {
+    } catch {
       const pillSvg = `<svg width="${b.width}" height="${b.height}"><rect width="${b.width}" height="${b.height}" rx="6" fill="#0d0e12ee" stroke="#232733" stroke-width="1"/></svg>`;
       composites.push({
         input: Buffer.from(pillSvg),
