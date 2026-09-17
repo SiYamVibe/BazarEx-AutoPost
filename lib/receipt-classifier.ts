@@ -41,11 +41,6 @@ const RECEIVED_PATTERNS = [
   /cash\s*out/i,
   /ক্যাশ\s*আউট/i,
   /ক্যাশ\s*ইন/i,
-  /সেন্ড\s*মানি/i,
-  /বিকাশ/i,
-  /সর্বমোট/i,
-  /নতুন\s*ব্যালেন্স/i,
-  /রিওয়ার্ড/i,
   /received\s*from/i,
   /payment\s*received/i,
   /money\s*received/i,
@@ -53,12 +48,16 @@ const RECEIVED_PATTERNS = [
   /\bcash\s*in\b/i,
   /\bcredited\b/i,
   /\bdeposit\b/i,
-  /to\s*tushar/i,
   /account\s*credited/i,
+  /জমা\s*হয়েছে/i,
+  /গ্রহণ\s*করেছেন/i,
 ];
 
 const SENT_PATTERNS = [
+  /সেন্ড\s*মানি/i,
+  /send\s*money/i,
   /successfully\s*sent\s*to/i,
+  /successfully\s*sent/i,
   /sent\s*to/i,
   /\bsent\b/i,
   /\bpay\s*again\b/i,
@@ -74,7 +73,9 @@ const SENT_PATTERNS = [
   /payment\s*successful/i,
   /transaction\s*successful/i,
   /\bdebited\b/i,
+  /পাঠানো\s*হয়েছে/i,
 ];
+
 
 export function detectCurrency(text: string): CurrencyInfo {
   const clean = text.toLowerCase();
