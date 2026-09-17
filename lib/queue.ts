@@ -17,6 +17,9 @@ export interface QueueJob {
   error?: string;
   postUrl?: string;
   schedule?: any;
+  fromCurrency?: string;
+  toCurrency?: string;
+  receivedIndex?: 0 | 1;
 }
 
 const QUEUE_FILE = path.join(process.cwd(), "data", "queue.json");
@@ -65,7 +68,15 @@ function saveJobs(): void {
   }
 }
 
-export function enqueueBotExchange(images: string[], exchangeNo: string | number): {
+export function enqueueBotExchange(
+  images: string[],
+  exchangeNo: string | number,
+  options?: {
+    fromCurrency?: string;
+    toCurrency?: string;
+    receivedIndex?: 0 | 1;
+  }
+): {
   job: QueueJob;
   queuePosition: number;
   totalPending: number;
@@ -79,6 +90,9 @@ export function enqueueBotExchange(images: string[], exchangeNo: string | number
     exchangeNo,
     status: "queued",
     createdAt: Date.now(),
+    fromCurrency: options?.fromCurrency,
+    toCurrency: options?.toCurrency,
+    receivedIndex: options?.receivedIndex,
   };
 
   jobs.push(newJob);
@@ -184,7 +198,11 @@ async function processJob(job: QueueJob): Promise<void> {
   );
 
   // 2. Classify Received vs Sent & Detect Currencies
-  const classification = await classifyTwoScreenshots(buffers[0], buffers[1]);
+  const classification = await classifyTwoScreenshots(buffers[0], buffers[1], {
+    fromCurrencyHint: job.fromCurrency,
+    toCurrencyHint: job.toCurrency,
+    receivedIndexHint: job.receivedIndex,
+  });
   const receivedBuf = buffers[classification.receivedIndex];
   const sentBuf = buffers[classification.sentIndex];
 

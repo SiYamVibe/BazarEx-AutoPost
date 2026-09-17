@@ -112,7 +112,14 @@ export async function POST(request: Request) {
   const exchangeNo = typeof rawExchangeNo === "string" ? rawExchangeNo.trim() : rawExchangeNo;
 
   try {
-    const { job, queuePosition, totalPending } = enqueueBotExchange(body.images, exchangeNo);
+    const { job, queuePosition, totalPending } = enqueueBotExchange(body.images, exchangeNo, {
+      fromCurrency: typeof body.fromCurrency === "string" ? body.fromCurrency.trim() : undefined,
+      toCurrency: typeof body.toCurrency === "string" ? body.toCurrency.trim() : undefined,
+      receivedIndex:
+        body.receivedIndex === 0 || body.receivedIndex === 1 || body.receivedIndex === "0" || body.receivedIndex === "1"
+          ? (Number(body.receivedIndex) as 0 | 1)
+          : undefined,
+    });
 
     return NextResponse.json(
       {
