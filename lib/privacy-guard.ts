@@ -142,24 +142,14 @@ export async function detectSensitiveZones(
     const origW = origMeta.width || imageWidth;
     const origH = origMeta.height || imageHeight;
 
-    // Pre-processing for small/low-contrast text
-    const TARGET_OCR_WIDTH = 1200;
-    const preprocessedBuf = await sharp(imageBuffer)
-      .resize({ width: TARGET_OCR_WIDTH, withoutEnlargement: false })
-      .grayscale()
-      .normalize()
-      .sharpen()
-      .png()
-      .toBuffer();
-
-    const prepMeta = await sharp(preprocessedBuf).metadata();
-    const prepW = prepMeta.width || TARGET_OCR_WIDTH;
-    const prepH = prepMeta.height || Math.round((origH / origW) * TARGET_OCR_WIDTH);
+    const TARGET_OCR_WIDTH = 1500;
+    const prepW = TARGET_OCR_WIDTH;
+    const prepH = Math.round((origH / origW) * TARGET_OCR_WIDTH);
 
     const scaleX = origW / prepW;
     const scaleY = origH / prepH;
 
-    const { words, lines } = await extractOcrBoxes(preprocessedBuf);
+    const { words, lines } = await extractOcrBoxes(imageBuffer);
 
     const mapBox = (
       bbox: { x0: number; y0: number; x1: number; y1: number },

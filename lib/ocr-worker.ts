@@ -34,13 +34,26 @@ function serializeOcr<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
-async function preprocessForOcr(buffer: Buffer): Promise<Buffer> {
+async function preprocessPass1(buffer: Buffer): Promise<Buffer> {
   try {
     return await sharp(buffer)
-      .resize({ width: 1400, withoutEnlargement: false })
+      .resize({ width: 1500, withoutEnlargement: false, kernel: "lanczos3" })
       .grayscale()
       .normalize()
-      .sharpen()
+      .sharpen({ sigma: 1.5, m1: 1, m2: 2 })
+      .png()
+      .toBuffer();
+  } catch {
+    return buffer;
+  }
+}
+
+async function preprocessPass2(buffer: Buffer): Promise<Buffer> {
+  try {
+    return await sharp(buffer)
+      .resize({ width: 1500, withoutEnlargement: false, kernel: "lanczos3" })
+      .grayscale()
+      .threshold(160)
       .png()
       .toBuffer();
   } catch {
@@ -51,10 +64,20 @@ async function preprocessForOcr(buffer: Buffer): Promise<Buffer> {
 export async function extractOcrText(buffer: Buffer): Promise<string> {
   return serializeOcr(async () => {
     try {
-      const processed = await preprocessForOcr(buffer);
+      const [processed1, processed2] = await Promise.all([
+        preprocessPass1(buffer),
+        preprocessPass2(buffer),
+      ]);
+
       const worker = await getWorker();
-      const ret = await worker.recognize(processed);
-      return ret.data.text || "";
+      const [ret1, ret2] = await Promise.all([
+        worker.recognize(processed1),
+        worker.recognize(processed2),
+      ]);
+
+      const text1 = ret1.data.text || "";
+      const text2 = ret2.data.text || "";
+      return `${text1}\n${text2}`;
     } catch (err) {
       console.error("OCR extract error, resetting worker:", err);
       if (sharedWorker) {
@@ -78,12 +101,21 @@ export async function extractOcrBoxes(buffer: Buffer): Promise<{
 }> {
   return serializeOcr(async () => {
     try {
+      const [processed1, processed2] = await Promise.all([
+        preprocessPass1(buffer),
+        preprocessPass2(buffer),
+      ]);
+
       const worker = await getWorker();
-      const ret = await worker.recognize(buffer);
-      return {
-        words: ret.data.words || [],
-        lines: ret.data.lines || [],
-      };
+      const [ret1, ret2] = await Promise.all([
+        worker.recognize(processed1),
+        worker.recognize(processed2),
+      ]);
+
+      const words = [...(ret1.data.words || []), ...(ret2.data.words || [])];
+      const lines = [...(ret1.data.lines || []), ...(ret2.data.lines || [])];
+
+      return { words, lines };
     } catch (err) {
       console.error("OCR boxes error, resetting worker:", err);
       if (sharedWorker) {
